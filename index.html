@@ -1073,6 +1073,161 @@ main > .rail{min-width:0;max-width:100%}
 .copy-wrap .split[aria-expanded="true"]{background:rgba(0,0,0,.14)!important}
 .copy-wrap .menu{overflow:visible}
 </style>
+
+<style>
+/* ===== P1: wide-table readability + adaptive workspace width =====
+   Keep this block last so it wins over earlier table rules without !important
+   where specificity allows. Nothing here touches the highlight/anchor system. */
+
+/* Horizontal-scroll wrapper added by wrapTables() around every rendered table.
+   Wide BRD / matrix tables now scroll instead of cramming + breaking mid-word. */
+#doc .table-scroll{
+  margin:14px 0;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:12px;
+  box-shadow:0 0 0 1px var(--line);
+  background:#fff;
+}
+#doc .table-scroll table{
+  display:table;            /* keep a real table layout (beats mobile display:block) */
+  width:auto;               /* don't force 100% squeeze… */
+  min-width:100%;           /* …but fill the wrapper; grow + scroll when wider */
+  max-width:none;
+  margin:0;
+  border-radius:0;          /* radius + outline now live on the wrapper */
+  box-shadow:none;
+  overflow:visible;
+}
+/* Cells wrap at word boundaries only — never split an id like SAV_001 / BRD-R01. */
+#doc .table-scroll th,
+#doc .table-scroll td{
+  overflow-wrap:normal;
+  word-break:normal;
+  hyphens:none;
+  white-space:normal;
+  min-width:6.5em;          /* readable columns; excess width → wrapper scrolls */
+  vertical-align:top;
+}
+#doc .table-scroll td code,
+#doc .table-scroll th code{ white-space:nowrap; }
+
+/* Adaptive width: with no notes yet, drop the empty rail column so the document
+   (and its wide tables) get the full width. The rail returns on the first note. */
+body.no-notes main{ grid-template-columns:minmax(0,1fr); }
+body.no-notes .rail{
+  position:static;
+  border:none;
+  background:none;
+  box-shadow:none;
+  padding:0;
+  margin-top:6px;
+}
+body.no-notes .rail::before,
+body.no-notes.sample-mode .rail::after{ display:none; }
+body.no-notes .rail-empty{ max-width:none; text-align:center; }
+
+@media (max-width:900px){
+  /* wrapper handles scroll on mobile too; keep tables as real tables */
+  #doc .table-scroll table{ display:table; width:auto; min-width:100%; }
+}
+
+/* ===== P2: comment-flow polish (entrance + highlight pulse) =====
+   Disabled automatically for users who prefer reduced motion (handled by the
+   global reduced-motion block). */
+@keyframes cardIn{ from{opacity:0; transform:translateX(10px)} to{opacity:1; transform:translateX(0)} }
+.card.card-new{ animation:cardIn .22s cubic-bezier(.2,.7,.2,1); }
+@keyframes hlPulse{
+  0%{ box-shadow:inset 0 -2px 0 var(--hl-line), 0 0 0 4px var(--hl-active); }
+  100%{ box-shadow:inset 0 -2px 0 var(--hl-line), 0 0 0 0 transparent; }
+}
+mark.hl.pulse{ animation:hlPulse .85s ease-out; border-radius:4px; }
+
+/* ===== P3: editor auto-grow + code-block header (language label + copy) ===== */
+.c-edit textarea{ resize:none; overflow-y:auto; max-height:340px; }
+
+#doc .code-block{
+  margin:14px 0;
+  border-radius:8px;
+  overflow:hidden;
+  box-shadow:0 0 0 1px var(--line);
+}
+#doc .code-block pre{ margin:0; border-radius:0; }
+#doc .code-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 8px 6px 12px;
+  background:#0b121b;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  user-select:none;
+}
+#doc .code-lang{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:#8aa0b6;
+}
+#doc .code-copy{
+  flex:none;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06);
+  color:#cfe0f2;
+  font-size:11.5px;
+  font-weight:600;
+  padding:3px 11px;
+  border-radius:6px;
+  transition:background .12s,border-color .12s;
+}
+#doc .code-copy:hover{ background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.3); }
+#doc .code-copy:active{ transform:translateY(1px); }
+
+/* ===== P4: Figma-style hover note preview ===== */
+#hlPop{
+  position:fixed; z-index:72; display:none;
+  width:300px; max-width:calc(100vw - 20px);
+  background:#fff; border:1px solid var(--line-strong);
+  border-radius:13px; box-shadow:var(--shadow-lg);
+  padding:7px; opacity:0; transform:translateY(5px) scale(.98);
+  transition:opacity .14s ease, transform .14s cubic-bezier(.2,.7,.2,1);
+}
+#hlPop.ready{ display:block; }
+#hlPop.show{ opacity:1; transform:translateY(0) scale(1); }
+#hlPop .pop-group{ font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-faint); padding:4px 7px 6px; }
+#hlPop .pop-row{ display:flex; gap:9px; padding:8px; border-radius:10px; cursor:pointer; outline:none; }
+#hlPop .pop-row:hover,#hlPop .pop-row:focus-visible{ background:#eff5ff; }
+#hlPop .pop-row + .pop-row{ border-top:1px solid var(--line); }
+#hlPop .pop-badge{ flex:none; width:20px; height:20px; border-radius:50%;
+  background:linear-gradient(180deg,#3478f6 0%,#1d4ed8 100%); color:#fff;
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+#hlPop .pop-body{ min-width:0; flex:1; }
+#hlPop .pop-quote{ font-size:11.5px; color:var(--ink-soft); line-height:1.35;
+  border-left:2px solid var(--line-strong); padding-left:7px; margin-bottom:4px;
+  display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+#hlPop .pop-note{ font-size:13px; color:var(--ink); line-height:1.5; white-space:pre-wrap; word-wrap:break-word;
+  display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+#hlPop .pop-note.muted{ color:var(--ink-faint); font-style:italic; }
+
+/* ===== P4: collapse / expand the notes panel ===== */
+body.rail-collapsed main{ grid-template-columns:minmax(0,1fr); }
+body.rail-collapsed .rail{ display:none; }
+.icon-btn{ gap:6px; }
+.icon-btn .tr-ico{ font-size:13px; line-height:1; opacity:.85; }
+body.no-notes #bToggleRail{ display:none; }   /* nothing to hide when there are no notes */
+
+/* ===== P4: explicit edit button on a note card ===== */
+.c-editbtn{
+  flex:none; border:none; background:none; color:var(--ink-faint);
+  font-size:13px; line-height:1; width:22px; height:20px; border-radius:5px;
+  opacity:0; transition:opacity .12s, background .12s, color .12s;
+}
+.card:hover .c-editbtn,.card.on .c-editbtn{ opacity:1; }
+.c-editbtn:hover{ background:#e8eefb; color:var(--brand); }
+@media (hover:none){ .c-editbtn,.c-del{ opacity:1; } }   /* always visible on touch */
+</style>
 </head>
 <body>
 
@@ -1084,6 +1239,7 @@ main > .rail{min-width:0;max-width:100%}
   <div class="tools">
     <span class="doc-label" id="docLabel">Sample document</span>
     <span class="count" aria-live="polite"><b id="cnt">0</b> <span id="cntLabel">notes</span></span>
+    <button class="btn icon-btn" id="bToggleRail" title="Hide notes panel" aria-pressed="false" aria-label="Hide notes panel"><span class="tr-ico" aria-hidden="true">⇥</span><span class="tr-txt">Hide notes</span></button>
     <button class="btn" id="bOpenMd">Open Markdown</button>
     <button class="btn" id="bSource">Paste Markdown</button>
     <span class="pop copy-wrap">
@@ -1137,6 +1293,9 @@ main > .rail{min-width:0;max-width:100%}
 </main>
 
 <div id="floater"><button id="addBtn">✎ Add note <span class="k">⏎</span></button></div>
+
+<!-- Figma-style hover preview of the note(s) on a highlighted passage -->
+<div id="hlPop" role="dialog" aria-label="Note preview"></div>
 
 <!-- Source drawer -->
 <div class="overlay" id="ovSource">
@@ -1306,13 +1465,64 @@ async function useSampleDocument(){
 
 
 /* ============ markdown render ============ */
-if (window.marked) marked.setOptions({ gfm:true, breaks:false, headerIds:false, mangle:false });
+if (window.marked) marked.setOptions({ gfm:true, breaks:false });   // headerIds/mangle removed in marked 12
 
 function mdToHtml(md){
   let html;
   try { html = window.marked ? marked.parse(md) : md.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\n/g,"<br>"); }
   catch(e){ html = "<p>Could not render markdown.</p>"; }
   return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+}
+
+/* Wrap each rendered table in a horizontal-scroll container so wide tables
+   (7–8 column BRD / matrix tables) stay readable and scroll instead of being
+   crammed into the column and breaking words mid-token. Wrapping only adds an
+   element around the table — it does not touch text nodes, so highlight anchors
+   and offsets are unaffected. */
+function wrapTables(){
+  doc.querySelectorAll("table").forEach(t=>{
+    const p=t.parentElement;
+    if(p && p.classList.contains("table-scroll")) return;   // already wrapped
+    const w=document.createElement("div");
+    w.className="table-scroll";
+    t.parentNode.insertBefore(w,t);
+    w.appendChild(t);
+  });
+}
+
+/* Give each code block a small header with the language label and a Copy button.
+   This also clearly labels PlantUML blocks (which have no in-browser renderer and
+   stay as source). The header is marked .no-anchor so its text is excluded from
+   the highlight/offset space. Mermaid blocks are skipped — they render to SVG. */
+function enhanceCodeBlocks(){
+  doc.querySelectorAll("pre").forEach(pre=>{
+    if(pre.closest(".code-block") || pre.closest(".mermaid-wrap")) return;
+    const code=pre.querySelector("code");
+    let lang="";
+    if(code){
+      const cls=[...code.classList].find(c=>c.startsWith("language-")||c.startsWith("lang-"));
+      if(cls) lang=cls.replace(/^(language-|lang-)/,"");
+    }
+    const wrap=document.createElement("div");
+    wrap.className="code-block";
+    pre.parentNode.insertBefore(wrap,pre);
+    const bar=document.createElement("div");
+    bar.className="code-bar no-anchor";
+    const label=document.createElement("span");
+    label.className="code-lang";
+    label.textContent=lang || "code";
+    const btn=document.createElement("button");
+    btn.type="button"; btn.className="code-copy"; btn.textContent="Copy";
+    btn.addEventListener("click",e=>{
+      e.stopPropagation();
+      copyText((code?code.textContent:pre.textContent)).then(ok=>{
+        btn.textContent=ok?"Copied":"Error";
+        setTimeout(()=>{ btn.textContent="Copy"; },1400);
+      });
+    });
+    bar.appendChild(label); bar.appendChild(btn);
+    wrap.appendChild(bar); wrap.appendChild(pre);
+  });
 }
 
 /* ============ anchor-aware text helpers ============
@@ -1329,6 +1539,16 @@ function anchorNodes(root){
     acceptNode(n){ return inNoAnchor(n)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT; }});
   let n; while((n=w.nextNode())) out.push(n);
   return out;
+}
+// Ignorable layout whitespace sitting DIRECTLY inside a table/list (between cells,
+// rows or list items). It stays in the anchor-text (so cell boundaries act as word
+// breaks), but wrapRange must NOT wrap it: a <mark> placed straight inside a <tr>
+// becomes a stray phantom cell — that caused the "table grows an extra column" bug
+// when a selection spanned two cells.
+const STRUCT_WS_PARENTS=new Set(["TR","TABLE","THEAD","TBODY","TFOOT","COLGROUP","UL","OL","DL","SELECT","MENU"]);
+function isStructuralWS(node){
+  const p=node.parentElement;
+  return !!(p && STRUCT_WS_PARENTS.has(p.tagName) && !/\S/.test(node.nodeValue));
 }
 function anchorText(root){ return anchorNodes(root).map(n=>n.nodeValue).join(""); }
 
@@ -1359,7 +1579,9 @@ function wrapRange(root,start,end,id){
   for(const node of nodes){
     const ns=cum, ne=cum+node.nodeValue.length;
     const os=Math.max(start,ns), oe=Math.min(end,ne);
-    if(os<oe) segs.push({node,ls:os-ns,le:oe-ns});
+    // still advance `cum` for whitespace between cells/rows, but never wrap it
+    // (a <mark> directly inside a <tr>/<ul> would render as a stray phantom cell)
+    if(os<oe && !isStructuralWS(node)) segs.push({node,ls:os-ns,le:oe-ns});
     cum=ne; if(cum>=end) break;
   }
   for(let i=segs.length-1;i>=0;i--){
@@ -1448,27 +1670,71 @@ async function drawMermaid(){
 /* ============ render pipeline ============ */
 function renderDoc(){
   doc.innerHTML = mdToHtml(SRC);
+  wrapTables();                        // wrap tables for horizontal scroll (no mid-word cram)
   prepMermaid();                       // exclude diagram regions before anchoring
+  enhanceCodeBlocks();                 // code header + copy button (excluded from anchoring)
   const T = anchorText(doc);
   ANN.forEach(a=>{
     const s=findStart(T,a);
     a.resolved = s!==-1;
-    if(s!==-1) wrapRange(doc, s, s+a.quote.length, a.id);
+    if(s!==-1){ wrapRange(doc, s, s+a.quote.length, a.id); bindMarkClicks(a.id); }
   });
-  // attach a numbered badge to each annotation's last mark + bind clicks + record section
-  ANN.forEach((a,i)=>{
-    const marks=doc.querySelectorAll(`mark.hl[data-id="${a.id}"]`);
-    marks.forEach(m=>m.addEventListener("click",e=>{e.stopPropagation();focusCard(a.id,true);}));
-    if(marks.length){
-      a.section = nearestHeading(marks[0]);
-      const b=document.createElement("sup");
-      b.className="hl-badge no-anchor"; b.dataset.id=a.id; b.textContent=String(i+1);
-      b.addEventListener("click",e=>{e.stopPropagation();focusCard(a.id,true);});
-      marks[marks.length-1].appendChild(b);   // .no-anchor → excluded from offsets
-    }
-  });
+  renumber();                          // reading-order numbering + badges + section paths
   renderCards(); save();
   drawMermaid();                       // async fill; relayouts when done
+}
+
+/* bind click-to-focus on an annotation's highlight marks (idempotent) */
+function bindMarkClicks(id){
+  doc.querySelectorAll(`mark.hl[data-id="${id}"]`).forEach(m=>{
+    if(m.dataset.bound) return;
+    m.dataset.bound="1";
+    m.addEventListener("click",e=>{e.stopPropagation();focusCard(id,true);});
+  });
+}
+
+/* Order annotations by their position in the document, then (re)number their
+   badges and record each note's section. Shared by the full render and the
+   incremental add/delete paths so numbers always follow READING order, not the
+   order notes were created in. */
+function renumber(){
+  const firstMark={};
+  ANN.forEach(a=>{ firstMark[a.id]=doc.querySelector(`mark.hl[data-id="${a.id}"]`); });
+  ANN.sort((a,b)=>{
+    const ma=firstMark[a.id], mb=firstMark[b.id];
+    if(!ma && !mb) return 0;
+    if(!ma) return 1;                 // unresolved notes sink to the end
+    if(!mb) return -1;
+    if(ma===mb) return 0;
+    return (ma.compareDocumentPosition(mb) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+  });
+  ANN.forEach((a,i)=>{
+    const marks=doc.querySelectorAll(`mark.hl[data-id="${a.id}"]`);
+    if(!marks.length){ a.resolved=false; return; }
+    a.resolved=true;
+    a.section=nearestHeading(marks[0]);
+    let badge=doc.querySelector(`.hl-badge[data-id="${a.id}"]`);
+    if(!badge){
+      badge=document.createElement("sup");
+      badge.className="hl-badge no-anchor"; badge.dataset.id=a.id;
+      badge.addEventListener("click",e=>{e.stopPropagation();focusCard(a.id,true);});
+    }
+    const host=marks[marks.length-1];
+    if(badge.parentNode!==host) host.appendChild(badge);   // keep badge on the last mark
+    badge.textContent=String(i+1);
+  });
+}
+
+/* P2 polish: entrance animation for a new card + a brief pulse on its highlight */
+function animateNewCard(c){
+  c.classList.add("card-new");
+  c.addEventListener("animationend",()=>c.classList.remove("card-new"),{once:true});
+}
+function pulseMark(id){
+  doc.querySelectorAll(`mark.hl[data-id="${id}"]`).forEach(m=>{
+    m.classList.add("pulse");
+    m.addEventListener("animationend",()=>m.classList.remove("pulse"),{once:true});
+  });
 }
 // nearest preceding heading (section path) above a node
 function nearestHeading(node){
@@ -1485,6 +1751,8 @@ function renderCards(){
   $("#cnt").textContent = ANN.length;
   const lbl=$("#cntLabel"); if(lbl) lbl.textContent = ANN.length===1 ? "note" : "notes";
   empty.style.display = ANN.length ? "none" : "block";
+  // No notes yet → let the document use the full width (wide tables need room).
+  document.body.classList.toggle("no-notes", ANN.length===0);
   railInner.innerHTML="";
   ANN.forEach((a,i)=>{
     const c=document.createElement("div");
@@ -1499,6 +1767,7 @@ function renderCards(){
          <span class="badge">${i+1}</span>
          <span class="c-quote">${esc(a.quote)}</span>
          ${warn}
+         <button class="c-editbtn" title="Edit note" aria-label="Edit note">✎</button>
          <button class="c-del" title="Delete note">×</button>
        </div>
        ${exampleChip}
@@ -1524,6 +1793,11 @@ function renderCards(){
     del.title="Delete note"; del.setAttribute("aria-label","Delete note "+(i+1));
     del.addEventListener("click",e=>{ e.stopPropagation(); armDel(); });
     del.addEventListener("blur",disarmDel);
+
+    // explicit edit button (editing is also possible via click / double-click)
+    const editBtn=c.querySelector(".c-editbtn");
+    editBtn.setAttribute("aria-label","Edit note "+(i+1));
+    editBtn.addEventListener("click",e=>{ e.stopPropagation(); disarmDel(); editCard(c,a); });
 
     c.addEventListener("click",()=>{
       disarmDel();   // clicking the card cancels a pending delete
@@ -1553,7 +1827,10 @@ function editCard(c,a){
   note.replaceWith(box);
   const ta=box.querySelector("textarea");
   focusWithoutScrolling(ta); ta.setSelectionRange(ta.value.length,ta.value.length);
-  ta.addEventListener("input",layoutCards);
+  // auto-grow the editor to fit its content (CSS max-height caps it, then scrolls)
+  const autoGrow=()=>{ ta.style.height="auto"; ta.style.height=ta.scrollHeight+"px"; };
+  autoGrow();
+  ta.addEventListener("input",()=>{ autoGrow(); layoutCards(); });
   const commit=()=>{ a.note=ta.value.trim(); renderCards(); save(); };
   ta.addEventListener("keydown",e=>{
     if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); commit(); }  // Enter = save
@@ -1565,9 +1842,18 @@ function editCard(c,a){
 }
 
 function delAnn(id){
+  // Unwrap this note's highlights in place — no markdown reparse, no mermaid redraw.
+  doc.querySelectorAll(`mark.hl[data-id="${id}"]`).forEach(m=>{
+    const b=m.querySelector(".hl-badge"); if(b) b.remove();
+    const p=m.parentNode;
+    while(m.firstChild) p.insertBefore(m.firstChild, m);
+    p.removeChild(m);
+    p.normalize();                     // merge split text nodes so future anchors stay clean
+  });
   ANN=ANN.filter(x=>x.id!==id);
   if(activeId===id) activeId=null;
-  renderDoc();
+  renumber();
+  renderCards(); save();
 }
 
 function focusCard(id,scroll){
@@ -1682,7 +1968,11 @@ function onSelect(){
     rectTop:r.top };
   floater.style.display="block";
   const left=Math.min(window.innerWidth-92, Math.max(92, r.left+r.width/2));
-  const top=Math.min(window.innerHeight-56, Math.max(76, r.bottom+8));
+  // Prefer placing the button ABOVE the selection so it doesn't cover the text
+  // below it (next line, a diagram, …); fall back below only when there's no room.
+  const fh=42, margin=8;
+  let top=r.top-fh-margin;
+  if(top<76) top=Math.min(window.innerHeight-fh-margin, r.bottom+margin);
   floater.style.left=left+"px";
   floater.style.top=top+"px";
   floater.style.transform="translateX(-50%)";
@@ -1690,20 +1980,35 @@ function onSelect(){
 function hideFloater(){ floater.style.display="none"; pending=null; }
 function commitPending(){
   if(!pending) return;
-  const anchorTop=pending.rectTop;
   const a={ id:"a"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
     quote:pending.quote, start:pending.start,
     prefix:pending.prefix, suffix:pending.suffix, note:"" };
   ANN.push(a); const id=a.id;
   activeId=id;                       // render the new card as active immediately
-  hideFloater(); window.getSelection().removeAllRanges();
-  renderDoc();
-  // Re-rendering #doc can make Chromium/Safari restore scroll to the document top.
-  // Keep the newly highlighted passage at the exact same viewport position.
-  if(Number.isFinite(anchorTop)) lockViewportToMark(id,anchorTop);
-  // open editor immediately on the new card without stealing scroll focus
+  hideFloater(); hideHlPop(true); window.getSelection().removeAllRanges();
+  setRailCollapsed(false);           // reveal the panel so the new note is visible
+  // Incremental insert: wrap only this passage on the live DOM — no markdown
+  // reparse and no mermaid redraw, so nothing flickers or jumps.
+  const T=anchorText(doc);
+  const s=findStart(T,a);
+  a.resolved=s!==-1;
+  if(s!==-1){ wrapRange(doc, s, s+a.quote.length, id); bindMarkClicks(id); }
+  renumber();
+  renderCards(); save();
+  pulseMark(id);                     // brief highlight flash on the new passage
+  // open editor on the new card; scroll it into view only if it landed off-screen
   const c=[...railInner.children].find(x=>x.dataset.id===id);
-  if(c){ focusCard(id,false); editCard(c,a); }
+  if(c){
+    focusCard(id,false); editCard(c,a); animateNewCard(c);
+    const ta=c.querySelector(".c-edit textarea");
+    if(ta){
+      const r=ta.getBoundingClientRect();
+      if(r.top<84 || r.bottom>window.innerHeight-12){
+        const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        ta.scrollIntoView({behavior:reduce?"auto":"smooth", block:"center"});
+      }
+    }
+  }
 }
 document.addEventListener("mouseup",e=>{
   if(floater.contains(e.target)) return;
@@ -1711,11 +2016,100 @@ document.addEventListener("mouseup",e=>{
 });
 document.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&pending&&floater.style.display==="block"){ e.preventDefault(); commitPending(); }
-  if(e.key==="Escape"){ hideFloater(); closeOverlays(); document.querySelectorAll(".menu").forEach(m=>m.hidden=true); const o=$("#bCopyOpts"); if(o) o.setAttribute("aria-expanded","false"); }
+  if(e.key==="Escape"){ hideFloater(); hideHlPop(true); closeOverlays(); document.querySelectorAll(".menu").forEach(m=>m.hidden=true); const o=$("#bCopyOpts"); if(o) o.setAttribute("aria-expanded","false"); }
 });
 window.addEventListener("scroll",()=>{ if(pending) hideFloater(); },{passive:true});
 $("#addBtn").addEventListener("mousedown",e=>e.preventDefault());
 $("#addBtn").addEventListener("click",commitPending);
+
+/* ============ Figma-style hover preview of a passage's note(s) ============ */
+const hlPop=$("#hlPop");
+let popHideT=null;
+// all annotation ids whose highlight covers the hovered point (self + nested + ancestors)
+function marksAtPoint(mark){
+  const ids=new Set();
+  let el=mark;
+  while(el && el.classList && el.classList.contains("hl")){
+    ids.add(el.dataset.id);
+    el = el.parentElement ? el.parentElement.closest("mark.hl") : null;
+  }
+  mark.querySelectorAll("mark.hl").forEach(m=>ids.add(m.dataset.id));
+  return [...ids];
+}
+function showHlPop(mark){
+  const items=marksAtPoint(mark).map(id=>ANN.find(a=>a.id===id)).filter(Boolean);
+  if(!items.length){ hideHlPop(true); return; }
+  items.sort((a,b)=>ANN.indexOf(a)-ANN.indexOf(b));   // reading order
+  hlPop.innerHTML="";
+  if(items.length>1){
+    const g=document.createElement("div"); g.className="pop-group";
+    g.textContent=items.length+" notes on this passage";
+    hlPop.appendChild(g);
+  }
+  items.forEach(a=>{
+    const num=ANN.indexOf(a)+1;
+    const row=document.createElement("div"); row.className="pop-row"; row.tabIndex=0;
+    row.innerHTML=`<span class="pop-badge"></span><div class="pop-body"><div class="pop-quote"></div><div class="pop-note"></div></div>`;
+    row.querySelector(".pop-badge").textContent=num;
+    row.querySelector(".pop-quote").textContent=a.quote;
+    const note=row.querySelector(".pop-note");
+    note.textContent=a.note || "No note yet — click to add";
+    if(!a.note) note.classList.add("muted");
+    const go=()=>{
+      hideHlPop(true); setRailCollapsed(false); focusCard(a.id,true);
+      if(!a.note){ const c=[...railInner.children].find(x=>x.dataset.id===a.id); if(c) editCard(c,a); }
+    };
+    row.addEventListener("click",go);
+    row.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } });
+    hlPop.appendChild(row);
+  });
+  hlPop.classList.add("ready");                         // lay out (opacity 0) so we can measure
+  const r=mark.getBoundingClientRect();
+  const pw=hlPop.offsetWidth, ph=hlPop.offsetHeight;
+  const left=Math.max(10, Math.min(window.innerWidth-pw-10, r.left));
+  let top=r.bottom+8;
+  if(top+ph>window.innerHeight-10) top=Math.max(10, r.top-ph-8);  // flip above if no room below
+  hlPop.style.left=left+"px"; hlPop.style.top=top+"px";
+  requestAnimationFrame(()=>hlPop.classList.add("show"));
+}
+function hideHlPop(now){
+  clearTimeout(popHideT);
+  hlPop.classList.remove("show");
+  if(now) hlPop.classList.remove("ready");
+  else popHideT=setTimeout(()=>hlPop.classList.remove("ready"),160);
+}
+doc.addEventListener("mouseover",e=>{
+  const m=e.target.closest && e.target.closest("mark.hl");
+  if(!m || !doc.contains(m)) return;
+  clearTimeout(popHideT);
+  showHlPop(m);
+});
+doc.addEventListener("mouseout",e=>{
+  const m=e.target.closest && e.target.closest("mark.hl");
+  if(!m) return;
+  const to=e.relatedTarget;
+  if(to && (hlPop.contains(to) || (to.closest && to.closest("mark.hl")))) return;   // into popover / another mark
+  clearTimeout(popHideT); popHideT=setTimeout(()=>hideHlPop(),200);
+});
+hlPop.addEventListener("mouseenter",()=>clearTimeout(popHideT));
+hlPop.addEventListener("mouseleave",()=>{ clearTimeout(popHideT); popHideT=setTimeout(()=>hideHlPop(),160); });
+window.addEventListener("scroll",()=>hideHlPop(true),{passive:true});
+
+/* ============ collapse / expand the notes panel ============ */
+function setRailCollapsed(v){
+  document.body.classList.toggle("rail-collapsed", !!v);
+  const b=$("#bToggleRail");
+  if(b){
+    const t=b.querySelector(".tr-txt"), ico=b.querySelector(".tr-ico");
+    if(t) t.textContent = v ? "Show notes" : "Hide notes";
+    if(ico) ico.textContent = v ? "⇤" : "⇥";
+    b.setAttribute("aria-pressed", v?"true":"false");
+    b.title = v ? "Show notes panel" : "Hide notes panel";
+    b.setAttribute("aria-label", b.title);
+  }
+  layoutCards();
+}
+$("#bToggleRail").addEventListener("click",()=>setRailCollapsed(!document.body.classList.contains("rail-collapsed")));
 
 /* ============ export bundle ============ */
 const HEAD={
